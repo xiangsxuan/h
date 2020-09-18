@@ -1,40 +1,26 @@
 # -*- coding: utf-8 -*-
 
-from h import models, storage
+from h import models
 from h.celery import celery, get_task_logger
 from h.models import Annotation
-from h.search.index import BatchIndexer, delete, index
 
 log = get_task_logger(__name__)
 
 
 @celery.task
 def add_annotation(id_):
-    annotation = storage.fetch_annotation(celery.request.db, id_)
-    if annotation:
-        index(celery.request.es, annotation, celery.request)
-
-        # If a reindex is running at the moment, add annotation to the new index
-        # as well.
-        future_index = _current_reindex_new_name(celery.request, "reindex.new_index")
-        if future_index is not None:
-            index(
-                celery.request.es, annotation, celery.request, target_index=future_index
-            )
-
-        if annotation.is_reply:
-            add_annotation.delay(annotation.thread_root_id)
+    search_index = celery.request.find_service(name="search_index")
+    try:
+        search_index.add_annotation_by_id(id_)
+    except ValueError:
+        # TODO! - Come up with a better error
+        pass
 
 
 @celery.task
 def delete_annotation(id_):
-    delete(celery.request.es, id_)
-
-    # If a reindex is running at the moment, delete annotation from the
-    # new index as well.
-    future_index = _current_reindex_new_name(celery.request, "reindex.new_index")
-    if future_index is not None:
-        delete(celery.request.es, id_, target_index=future_index)
+    search_index = celery.request.find_service(name="search_index")
+    search_index.delete_annotation_by_id(id_)
 
 
 @celery.task
@@ -43,9 +29,9 @@ def reindex_user_annotations(userid):
         a.id
         for a in celery.request.db.query(models.Annotation.id).filter_by(userid=userid)
     ]
+    search_index = celery.request.find_service(name="search_index")
+    errored = search_index.add_annotations(ids)
 
-    indexer = BatchIndexer(celery.request.db, celery.request.es, celery.request)
-    errored = indexer.index(ids)
     if errored:
         log.warning("Failed to re-index annotations into ES6 %s", errored)
 
@@ -61,8 +47,8 @@ def reindex_annotations_in_date_range(start_date, end_date, max_annotations=2500
     """
     log.info(f"Re-indexing from {start_date} to {end_date}...")
 
-    indexer = BatchIndexer(celery.request.db, celery.request.es, celery.request)
-    errored = indexer.index(
+    search_index = celery.request.find_service(name="search_index")
+    errored = search_index.add_annotations(
         annotation.id
         for annotation in celery.request.db.query(Annotation.id)
         .filter(Annotation.updated >= start_date)
