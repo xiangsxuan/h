@@ -79,6 +79,7 @@ def includeme(config):
     )
     config.register_service_factory(".search_index.factory", name="search_index")
     config.register_service_factory(".settings.settings_factory", name="settings")
+    config.register_service_factory(".task_queue.factory", name="task_queue")
     config.register_service_factory(".user.user_service_factory", name="user")
     config.register_service_factory(
         ".user_unique.user_unique_factory", name="user_unique"

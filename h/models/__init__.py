@@ -32,6 +32,7 @@ from h.models.group_scope import GroupScope
 from h.models.organization import Organization
 from h.models.setting import Setting
 from h.models.subscriptions import Subscriptions
+from h.models.task_queue import Task
 from h.models.token import Token
 from h.models.user import User
 from h.models.user_identity import UserIdentity
@@ -56,6 +57,7 @@ __all__ = (
     "Organization",
     "Setting",
     "Subscriptions",
+    "Task",
     "Token",
     "User",
     "UserIdentity",
