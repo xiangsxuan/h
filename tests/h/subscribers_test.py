@@ -145,6 +145,12 @@ class TestSendReplyNotifications:
 
         mailer_task.delay.assert_not_called()
 
+    def test_it_fails_gracefully_if_the_task_does_not_queue(self, event, mailer_task):
+        mailer_task.side_effect = OperationalError
+
+        # No explosions please
+        subscribers.send_reply_notifications(event)
+
     @pytest.fixture
     def event(self, pyramid_request):
         return AnnotationEvent(pyramid_request, {"id": "any"}, "action")
